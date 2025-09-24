@@ -1,0 +1,6 @@
+# 보드 좌표계 기준 셀 인덱스(0~8)
+int8 move_index
+---
+bool success
+string message
+
