@@ -111,4 +111,125 @@ def main(args=None):
         rclpy.shutdown()
 
 if __name__ == '__main__':
+    main()#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Int8
+from kat_msgs.msg import GameStart, GameResult
+import tkinter as tk
+from tkinter import messagebox
+import threading
+
+class PlayerInterface(Node):
+    def __init__(self, gui_root):
+        super().__init__('player_interface')
+        self.gui_root = gui_root
+        
+        self.board_buttons = []
+        self.game_over = True # 시작 신호를 받기 전까지는 True
+        self.my_turn = False
+
+        # ROS 통신
+        self.create_subscription(GameStart, '/kat/game_start', self.on_game_start, 10)
+        self.create_subscription(Int8, '/kat/computer_move', self.on_computer_move, 10)
+        self.create_subscription(GameResult, '/kat/game_result', self.on_game_result, 10)
+        self.move_pub = self.create_publisher(Int8, '/kat/player_move', 10)
+
+        self.setup_gui()
+
+    def setup_gui(self):
+        self.gui_root.title("TicTacToe ROS 2 Player")
+        self.gui_root.geometry("300x350")
+        
+        self.status_label = tk.Label(self.gui_root, text="게임 대기 중...", font=('Arial', 14))
+        self.status_label.pack(pady=10)
+
+        frame = tk.Frame(self.gui_root)
+        frame.pack()
+
+        for i in range(9):
+            btn = tk.Button(frame, text="", font=('Arial', 24), width=5, height=2,
+                            command=lambda idx=i: self.on_button_click(idx))
+            btn.grid(row=i//3, column=i%3)
+            self.board_buttons.append(btn)
+            
+    def on_game_start(self, msg):
+        self.game_over = False
+        self.my_turn = msg.human_first
+        
+        # 보드 초기화
+        for i, val in enumerate(msg.initial_board):
+            text = ""
+            if val == 1: text = "X"
+            elif val == -1: text = "O"
+            self.board_buttons[i].config(text=text, state=tk.NORMAL)
+
+        self.update_status()
+        self.get_logger().info("GUI: 게임 시작!")
+
+    def on_computer_move(self, msg):
+        idx = msg.data
+        if 0 <= idx < 9:
+            self.board_buttons[idx].config(text="O", disabledforeground="blue")
+            self.my_turn = True
+            self.update_status()
+
+    def on_button_click(self, idx):
+        if not self.my_turn or self.game_over: return
+        if self.board_buttons[idx]['text'] != "": return
+
+        # 내 움직임 표시
+        self.board_buttons[idx].config(text="X", disabledforeground="red")
+        self.my_turn = False
+        self.update_status()
+
+        # 매니저에게 전송
+        msg = Int8()
+        msg.data = idx
+        self.move_pub.publish(msg)
+
+    def on_game_result(self, msg):
+        self.game_over = True
+        self.my_turn = False
+        self.update_status()
+        
+        res_text = {
+            GameResult.RESULT_PLAYER_WINS: "승리했습니다! 🎉",
+            GameResult.RESULT_COMPUTER_WINS: "패배했습니다.. 🤖",
+            GameResult.RESULT_DRAW: "무승부입니다. 🤝"
+        }.get(msg.result, "게임 종료")
+        
+        messagebox.showinfo("게임 결과", res_text)
+
+    def update_status(self):
+        if self.game_over:
+            txt = "게임 종료"
+        else:
+            txt = "당신의 턴 (X)" if self.my_turn else "컴퓨터 생각 중... (O)"
+        self.status_label.config(text=txt)
+
+def ros_spin_thread(node):
+    rclpy.spin(node)
+
+def main(args=None):
+    rclpy.init(args=args)
+    root = tk.Tk()
+    
+    player_node = PlayerInterface(root)
+    
+    # ROS 2 스피닝을 별도 스레드에서 실행 (GUI 멈춤 방지)
+    spinner = threading.Thread(target=ros_spin_thread, args=(player_node,), daemon=True)
+    spinner.start()
+
+    try:
+        root.mainloop()
+    finally:
+        if rclpy.ok():
+            player_node.destroy_node()
+            rclpy.shutdown()
+
+if __name__ == '__main__':
     main()
+    
+    

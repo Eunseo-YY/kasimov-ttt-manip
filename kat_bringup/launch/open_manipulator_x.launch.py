@@ -121,20 +121,20 @@ def generate_launch_description():
 
     # Paths for configuration files
     controller_manager_config = PathJoinSubstitution([
-        FindPackageShare('kat_bringup'),
+        FindPackageShare('kat_control'),
         'config',
         'open_manipulator_x',
         'hardware_controller_manager.yaml',
     ])
 
     rviz_config_file = PathJoinSubstitution([
-        FindPackageShare('kat_description'),
+        FindPackageShare('kat_bringup'),
         'rviz',
         'open_manipulator.rviz',
     ])
 
     trajectory_params_file = PathJoinSubstitution([
-        FindPackageShare('kat_bringup'),
+        FindPackageShare('kat_control'),
         'config',
         'open_manipulator_x',
         init_position_file,
@@ -169,7 +169,7 @@ def generate_launch_description():
     )
 
     joint_trajectory_executor = Node(
-        package='open_manipulator_bringup',
+        package='kat_control',
         executable='joint_trajectory_executor',
         parameters=[trajectory_params_file],
         output='both',
