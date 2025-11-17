@@ -1,0 +1,41 @@
+<?xml version="1.0" ?>
+<robot name="board">
+<link name="board_frame2">
+  <inertial>
+  <!-- 질량 중심 기준 좌표 (m 단위) -->
+  <origin xyz="-0.193835 -0.000856 0.018095" rpy="0 0 0"/>
+
+  <!-- PLA + 인필 25% 기준 추정 질량 -->
+  <mass value="0.079594"/>
+
+  <!-- STL 형상 기준으로 적분해서 계산한 관성 텐서 (kg·m^2) -->
+  <inertia
+    ixx="0.00046777"
+    iyy="0.00026004"
+    izz="0.00069122"
+    ixy="0.00000156"
+    ixz="0.00000012"
+    iyz="0.00000081"/>
+  </inertial>
+  <visual>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="package://kat_description/meshes/board/board_frame.stl"
+      scale="0.001 0.001 0.001"/>
+    </geometry>
+    <material name="silver">
+      <color rgba="1 0 0 1"/>
+    </material>
+  </visual>
+  <collision>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="package://kat_description/meshes/board/board_frame.stl"
+      scale="0.001 0.001 0.001"/>
+    </geometry>
+  </collision>
+</link>
+<gazebo>
+  <plugin name="control" filename="libgazebo_ros2_control.so"/>
+</gazebo>
+</robot>

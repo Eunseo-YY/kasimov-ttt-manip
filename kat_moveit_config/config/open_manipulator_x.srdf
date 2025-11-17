@@ -16,13 +16,13 @@
         <joint name="joint3"/>
         <joint name="joint4"/>
     </group>
-    <group name="gripper">
+    <group name="hand">
         <link name="end_effector_link"/>
         <link name="gripper_left_link"/>
         <link name="gripper_right_link"/>
     </group>
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
-    <end_effector name="gripper" parent_link="link5" group="gripper"/>
+    <end_effector name="hand" parent_link="link5" group="hand"/>
     <!--VIRTUAL JOINT: Purpose: this element defines a virtual joint between a robot link and an external frame of reference (considered fixed with respect to the robot)-->
     <virtual_joint name="virtual_joint" type="fixed" parent_frame="world" child_link="link1"/>
     <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into collision with any other link in the robot. This tag disables collision checking between a specified pair of links. -->

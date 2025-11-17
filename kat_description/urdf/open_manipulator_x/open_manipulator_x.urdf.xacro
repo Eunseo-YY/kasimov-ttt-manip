@@ -11,7 +11,7 @@
 
   <xacro:include filename="$(find kat_description)/urdf/open_manipulator_x/open_manipulator_x_arm.urdf.xacro" />
 
-  <xacro:include filename="$(find kat_description)/ros2_control/$(arg ros2_control_type).ros2_control.xacro" />
+  <xacro:include filename="$(find kat_control)/ros2_control/$(arg ros2_control_type).ros2_control.xacro" />
 
   <link name="world"/>
 

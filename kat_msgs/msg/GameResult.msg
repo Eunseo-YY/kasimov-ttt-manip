@@ -1,0 +1,5 @@
+uint8 RESULT_PLAYER_WINS=0
+uint8 RESULT_COMPUTER_WINS=1
+uint8 RESULT_DRAW=2
+
+uint8 result
