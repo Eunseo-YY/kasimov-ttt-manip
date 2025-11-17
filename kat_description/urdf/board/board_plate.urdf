@@ -1,0 +1,45 @@
+<?xml version="1.0" ?>
+<robot name="board">
+  <link name="base_link">
+    <inertial>
+      <!-- STL bounding box 중심 기준 (단위: m) -->
+      <origin xyz="0.075 0.075 0.025" rpy="0 0 0"/>
+      <!-- 3D 프린터 재질 + 인필 감안한 질량 근사 -->
+      <mass value="0.53"/>
+      <!-- 직육면체 근사 관성 모멘트 (kg·m^2), COM 기준 -->
+      <inertia
+        ixx="0.00110"
+        iyy="0.00110"
+        izz="0.00197"
+        ixy="0.0"
+        iyz="0.0"
+        ixz="0.0" />
+    </inertial>
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh
+          filename="package://kat_description/meshes/board/board_plate.stl"
+          scale="0.001 0.001 0.001" />
+      </geometry>
+      <material name="silver">
+        <color rgba="1 0 0 1"/>
+      </material>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh
+          filename="package://kat_description/meshes/board/board_plate.stl"
+          scale="0.001 0.001 0.001" />
+      </geometry>
+    </collision>
+  </link>
+
+  <gazebo>
+    <plugin name="control" filename="libgazebo_ros_control.so"/>
+  </gazebo>
+</robot>
+

@@ -10,8 +10,6 @@ find_package(std_msgs REQUIRED)
 # 메시지/서비스 정의
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/BoardState.msg"
-  "srv/PlanMove.srv"
-  "srv/ExecuteMove.srv"
   DEPENDENCIES builtin_interfaces geometry_msgs std_msgs
 )
 

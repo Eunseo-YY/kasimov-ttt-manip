@@ -1,30 +1,26 @@
 cmake_minimum_required(VERSION 3.8)
 project(kat_tictactoe)
 
-# 경고 옵션(선택)
+# 선택: C++ 안 써도 있어도 상관 없음
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 find_package(ament_cmake REQUIRED)
-find_package(rcply REQUIRED)
+find_package(ament_cmake_python REQUIRED)
+find_package(rclpy REQUIRED)
 
-# 파이썬 패키지(kat_tictactoe 디렉터리) 설치
-ament_python_install_package(${PROJECT_NAME})
+# Python 패키지 설치 (src/kat_tictactoe 를 패키지로 인식)
+ament_python_install_package(${PROJECT_NAME}
+  PACKAGE_DIR src/${PROJECT_NAME}
+)
 
-# 실행 스크립트 설치 (ros2 run/launch 에서 executable로 사용)
+# ros2 run kat_tictactoe game_manager 이런 식으로 실행할 스크립트 설치
 install(PROGRAMS
-  kat_tictactoe/game_manager.py
-  kat_tictactoe/player_interface.py
+  src/${PROJECT_NAME}/game_manager.py
+  src/${PROJECT_NAME}/player_interface.py
   DESTINATION lib/${PROJECT_NAME}
 )
-
-# launch/ 설치
-install(DIRECTORY
-  launch
-  DESTINATION share/${PROJECT_NAME}
-)
-
 
 ament_package()
 
