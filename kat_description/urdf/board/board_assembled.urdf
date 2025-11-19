@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<robot name="board">
+  <link name="board_link">
+
+    <!-- 3D 프린터 PLA 가정 (대략 1.44 kg) -->
+    <inertial>
+      <!-- 관성 기준점: STL 좌표계 기준 질량중심 위치 (m) -->
+      <origin xyz="-0.08556 -0.00048 0.02826" rpy="0 0 0"/>
+      <mass value="1.436"/>
+
+      <!-- 직육면체 근사로 계산한 관성모멘트 (kg·m^2) -->
+      <inertia
+        ixx="0.00509"
+        ixy="0.0"
+        ixz="0.0"
+        iyy="0.01581"
+        iyz="0.0"
+        izz="0.02030"/>
+    </inertial>
+
+    <visual>
+      <!-- STL 원래 좌표계 그대로 사용 -->
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <!-- 패키지 경로는 프로젝트에 맞게 수정해서 쓰면 됨 -->
+        <mesh filename="package://kat_description/meshes/board/board_assembled.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="board_color">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kat_description/meshes/board/board_assembled.stl"
+              scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+
+  </link>
+</robot>
+

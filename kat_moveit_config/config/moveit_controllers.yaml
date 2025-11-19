@@ -4,9 +4,10 @@ moveit_controller_manager: moveit_simple_controller_manager/MoveItSimpleControll
 
 moveit_simple_controller_manager:
   controller_names:
-    - fake_manipulator_controller
+    - arm_controller
+    - hand_controller
 
-  fake_manipulator_controller:
+  arm_controller:
     type: FollowJointTrajectory
     joints:
       - joint1
@@ -14,4 +15,12 @@ moveit_simple_controller_manager:
       - joint3
       - joint4
     action_ns: follow_joint_trajectory
+    default: true
+  hand_controller:
+    type: GripperCommand
+    joints:
+      - gripper_left_joint
+      - end_effector_joint
+      - gripper_right_joint
+    action_ns: gripper_cmd
     default: true

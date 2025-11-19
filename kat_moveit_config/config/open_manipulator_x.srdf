@@ -11,6 +11,7 @@
     <!--SUBGROUPS: Groups can also be formed by referencing to already defined group names-->
     <group name="arm">
         <joint name="virtual_joint"/>
+        <joint name="joint0"/>
         <joint name="joint1"/>
         <joint name="joint2"/>
         <joint name="joint3"/>
@@ -24,8 +25,10 @@
     <!--END EFFECTOR: Purpose: Represent information about an end effector.-->
     <end_effector name="hand" parent_link="link5" group="hand"/>
     <!--VIRTUAL JOINT: Purpose: this element defines a virtual joint between a robot link and an external frame of reference (considered fixed with respect to the robot)-->
-    <virtual_joint name="virtual_joint" type="fixed" parent_frame="world" child_link="link1"/>
+    <virtual_joint name="virtual_joint" type="fixed" parent_frame="world" child_link="board_link"/>
     <!--DISABLE COLLISIONS: By default it is assumed that any link of the robot could potentially come into collision with any other link in the robot. This tag disables collision checking between a specified pair of links. -->
+    <disable_collisions link1="board_link" link2="link1" reason="Adjacent"/>
+    <disable_collisions link1="board_link" link2="link2" reason="Never"/>
     <disable_collisions link1="end_effector_link" link2="gripper_left_link" reason="Never"/>
     <disable_collisions link1="end_effector_link" link2="gripper_right_link" reason="Never"/>
     <disable_collisions link1="end_effector_link" link2="link3" reason="Never"/>
