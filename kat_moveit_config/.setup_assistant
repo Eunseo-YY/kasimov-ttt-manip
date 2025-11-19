@@ -5,6 +5,6 @@ moveit_setup_assistant_config:
   srdf:
     relative_path: config/open_manipulator_x.srdf
   package_settings:
-    author_name: eunseo YANG
+    author_name: eunseo yang
     author_email: uestru0310@korea.ac.kr
-    generated_timestamp: 1763392491
+    generated_timestamp: 1763535266
