@@ -3,13 +3,36 @@
 <package format="3">
   <name>kat_bringup</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Bringup package for simulation / robot launch</description>
   <maintainer email="uestru0310@korea.ac.kr">ydawn</maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <!-- (선택) C++ 노드가 있으면 유지 -->
   <depend>rclcpp</depend>
+
+  <!-- launch 파일 실행에 필요한 기본 -->
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <!-- launch에서 get_package_share_directory 쓰면 필요 -->
+  <exec_depend>ament_index_python</exec_depend>
+
+  <!-- launch에서 xacro/robot_state_publisher 쓰면 필요 -->
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+
+  <!-- ros2_control + controller spawner 쓰면 필요 -->
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>joint_state_broadcaster</exec_depend>
+  <exec_depend>joint_trajectory_controller</exec_depend>
+
+  <!-- Gazebo(ros_gz) 쓰면 필요 (네 로그에 있었음) -->
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>ros_gz_image</exec_depend>
+  <exec_depend>gz_ros2_control</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

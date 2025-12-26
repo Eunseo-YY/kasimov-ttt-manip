@@ -1,10 +1,25 @@
 moveit_setup_assistant_config:
   urdf:
     package: kat_description
-    relative_path: urdf/moveit_setup_assistant/open_manipulator_x_moveit.urdf
+    relative_path: urdf/open_manipulator_x/open_manipulator_x_msa.urdf.xacro
   srdf:
     relative_path: config/open_manipulator_x.srdf
   package_settings:
-    author_name: eunseo YANG
+    author_name: yangeunseo0310
     author_email: uestru0310@korea.ac.kr
-    generated_timestamp: 1763392491
+    generated_timestamp: 1766733120
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
+  modified_urdf:
+    xacros:
+      - control_xacro
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity

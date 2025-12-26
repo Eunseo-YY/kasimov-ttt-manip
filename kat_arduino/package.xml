@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>kat_arduino</name>
+  <version>0.0.0</version>
+  <description>Keyboard AI responder for TicTacToe (kat project)</description>
+  <maintainer email="ydawn@todo.todo">ydawn</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- build system -->
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <!-- runtime deps -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>kat_msgs</exec_depend>
+
+  <!-- optional: for launch -->
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

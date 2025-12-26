@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<robot name="open_manipulator_x" xmlns:xacro="http://ros.org/wiki/xacro">
+  <xacro:arg name="prefix" default="" />
+
+  <xacro:include filename="$(find kat_description)/urdf/open_manipulator_x/open_manipulator_x_arm.urdf.xacro" />
+
+  <xacro:open_manipulator_x prefix="$(arg prefix)" />
+</robot>

@@ -12,19 +12,15 @@ import xacro
 
 
 def generate_launch_description():
-    # Package paths
     open_manipulator_description_path = get_package_share_directory('kat_description')
-    open_manipulator_bringup_path = get_package_share_directory('kat_bringup')
     kat_sim_path = get_package_share_directory('kat_sim')
 
-    # ✅ worlds 경로: kat_sim에 있는 empty_world.sdf를 쓰게 만들기
-    # 네 구조: kat_sim/gazebo/worlds/empty_world.sdf
+    # worlds
     worlds_path = os.path.join(kat_sim_path, 'gazebo', 'worlds')
 
-    # 모델 리소스 루트(메시/모델 탐색용)
+    # model/mesh root
     models_root = str(Path(open_manipulator_description_path).parent.resolve())
 
-    # ✅ gz/ign 둘 다 worlds_path 포함
     set_gz_resource = SetEnvironmentVariable(
         name='GZ_SIM_RESOURCE_PATH',
         value=[worlds_path, ':' + models_root],
@@ -34,14 +30,12 @@ def generate_launch_description():
         value=[worlds_path, ':' + models_root],
     )
 
-    # Launch args (파일명만 받음)
     world_arg = DeclareLaunchArgument(
         'world',
         default_value='empty_world',
         description='Gazebo Sim world name (파일명, 확장자 제외)'
     )
 
-    # ✅ gz_args를 "단일 문자열"로 넘기기 (진짜 안정적)
     gz_args_str = [
         LaunchConfiguration('world'),
         TextSubstitution(text='.sdf -v 1 -r')
@@ -51,27 +45,29 @@ def generate_launch_description():
         PythonLaunchDescriptionSource([
             os.path.join(get_package_share_directory('ros_gz_sim'), 'launch', 'gz_sim.launch.py'),
         ]),
-        launch_arguments={
-            'gz_args': gz_args_str
-        }.items(),
+        launch_arguments={'gz_args': gz_args_str}.items(),
     )
 
-    # Robot description (use_sim=true)
-    xacro_file = os.path.join(
-        open_manipulator_description_path, 'urdf', 'open_manipulator_x', 'open_manipulator_x.urdf.xacro'
+    # =========================
+    # Robot description (xacro)
+    # =========================
+    robot_xacro_file = os.path.join(
+        open_manipulator_description_path,
+        'urdf',
+        'open_manipulator_x',
+        'open_manipulator_x.urdf.xacro'
     )
-    doc = xacro.process_file(xacro_file, mappings={'use_sim': 'true'})
-    robot_desc = doc.toprettyxml(indent='  ')
-    params = {'robot_description': robot_desc}
+    robot_doc = xacro.process_file(robot_xacro_file, mappings={'use_sim': 'true'})
+    robot_desc = robot_doc.toprettyxml(indent='  ')
 
     state_pub = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         output='screen',
-        parameters=[params],
+        parameters=[{'robot_description': robot_desc}],
     )
 
-    spawn = Node(
+    spawn_robot = Node(
         package='ros_gz_sim',
         executable='create',
         output='screen',
@@ -84,22 +80,56 @@ def generate_launch_description():
         ],
     )
 
+    # =========================
+    # Board (plain URDF)
+    # =========================
+    board_urdf_file = os.path.join(
+        open_manipulator_description_path,
+        'urdf',
+        'board',
+        'board_assembled.urdf'
+    )
+    with open(board_urdf_file, 'r') as f:
+        board_desc = f.read()
+
+    spawn_board = Node(
+        package='ros_gz_sim',
+        executable='create',
+        output='screen',
+        arguments=[
+            '-string', board_desc,
+            '-name', 'board',
+            '-x', '0.5', '-y', '0.0', '-z', '0.0',
+            '-R', '0.0', '-P', '0.0', '-Y', '0.0',
+            '-allow_renaming', 'true',
+        ],
+    )
+
+    # =========================
+    # Controllers (spawner)
+    # =========================
+    # Gazebo 플러그인이 띄운 controller_manager를 쓰는 경우가 많아서
+    # 기본은 /controller_manager로 두되, 필요하면 여기만 바꾸면 됨.
+    controller_manager_name = '/controller_manager'
+
     jsb_spawner = Node(
         package='controller_manager',
         executable='spawner',
-        arguments=['joint_state_broadcaster', '--controller-manager', '/controller_manager'],
+        arguments=['joint_state_broadcaster', '--controller-manager', controller_manager_name],
         output='screen',
     )
+
     arm_spawner = Node(
         package='controller_manager',
         executable='spawner',
-        arguments=['arm_controller'],
+        arguments=['arm_controller', '--controller-manager', controller_manager_name],
         output='screen',
     )
+
     gripper_spawner = Node(
         package='controller_manager',
         executable='spawner',
-        arguments=['gripper_controller'],
+        arguments=['gripper_controller', '--controller-manager', controller_manager_name],
         output='screen',
     )
 
@@ -111,7 +141,7 @@ def generate_launch_description():
     )
 
     on_spawn_exit = RegisterEventHandler(
-        OnProcessExit(target_action=spawn, on_exit=[jsb_spawner])
+        OnProcessExit(target_action=spawn_robot, on_exit=[jsb_spawner])
     )
     on_jsb_exit = RegisterEventHandler(
         OnProcessExit(target_action=jsb_spawner, on_exit=[arm_spawner, gripper_spawner])
@@ -123,7 +153,8 @@ def generate_launch_description():
         world_arg,
         gz_launch,
         state_pub,
-        spawn,
+        spawn_robot,
+        spawn_board,
         on_spawn_exit,
         on_jsb_exit,
         clock_bridge,

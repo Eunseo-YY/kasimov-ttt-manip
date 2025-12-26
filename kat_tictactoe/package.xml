@@ -1,4 +1,5 @@
 <?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>kat_tictactoe</name>
   <version>0.1.0</version>
@@ -7,20 +8,15 @@
   <maintainer email="yangeunseo0310@gmail.com">Eunseo</maintainer>
   <license>MIT</license>
 
-  <!-- 빌드 도구: CMake + setuptools(=ament_python은 setup.py가 담당) -->
-  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_python</buildtool_depend>
 
-  <!-- 런타임 의존성 -->
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-
-  <!-- 파이썬 인터프리터가 필요 -->
   <exec_depend>python3</exec_depend>
 
   <export>
-    <build_type>ament_cmake</build_type>
+    <build_type>ament_python</build_type>
   </export>
 </package>
-
