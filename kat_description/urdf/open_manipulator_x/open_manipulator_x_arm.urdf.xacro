@@ -215,7 +215,7 @@
       </inertial>
     </link>
 
-    <joint name="${prefix}gripper_right_joint" type="prismatic">
+    <joint name="${prefix}gripper_right_joint_mimic" type="prismatic">
       <parent link="${prefix}link5"/>
       <child link="${prefix}gripper_right_link"/>
       <origin xyz="0.0817 -0.021 0" rpy="0 0 0"/>

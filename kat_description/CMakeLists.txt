@@ -9,7 +9,7 @@ find_package(ament_cmake REQUIRED)
 
 # 리소스 설치: urdf/ meshes/ rviz/ 있으면 함께 설치 권장
 
-install(DIRECTORY urdf meshes 
+install(DIRECTORY urdf meshes gazebo
   DESTINATION share/${PROJECT_NAME}
   OPTIONAL
 )

@@ -10,7 +10,7 @@
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
         <!-- 패키지 경로는 프로젝트에 맞게 수정해서 쓰면 됨 -->
-        <mesh filename="package://kat_description/meshes/board/board_assembled.stl"
+        <mesh filename="package://kat_description/meshes/board/board_with_marker.stl"
               scale="0.001 0.001 0.001"/>
       </geometry>
       <material name="board_color">
@@ -21,7 +21,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-        <mesh filename="package://kat_description/meshes/board/board_assembled.stl"
+        <mesh filename="package://kat_description/meshes/board/board_with_marker.stl"
               scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>

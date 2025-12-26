@@ -3,7 +3,7 @@
     <xacro:arg name="initial_positions_file" default="initial_positions.yaml" />
 
     <!-- Import open_manipulator_x urdf file -->
-    <xacro:include filename="$(find kat_description)/urdf/moveit_setup_assistant/open_manipulator_x_moveit.urdf" />
+    <xacro:include filename="$(find kat_description)/urdf/open_manipulator_x/open_manipulator_x_msa.urdf.xacro" />
 
     <!-- Import control_xacro -->
     <xacro:include filename="open_manipulator_x.ros2_control.xacro" />
