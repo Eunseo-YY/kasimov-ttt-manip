@@ -1,30 +1,39 @@
 <?xml version="1.0"?>
-<!-- OpenManipulator Chain -->
 <robot name="open_manipulator_x" xmlns:xacro="http://ros.org/wiki/xacro">
+
   <xacro:arg name="prefix" default="" />
-  <xacro:arg name="use_sim" default="false" />
+  <xacro:arg name="use_sim" default="true" />
   <xacro:arg name="use_fake_hardware" default="false" />
   <xacro:arg name="fake_sensor_commands" default="false" />
   <xacro:arg name="port_name" default="/dev/ttyUSB0" />
 
-  <!-- Import Rviz colors -->
   <xacro:include filename="$(find open_manipulator_x_description)/gazebo/materials.xacro" />
-
-  <!-- Import all Gazebo-customization elements, including Gazebo colors -->
   <xacro:include filename="$(find open_manipulator_x_description)/gazebo/open_manipulator_x.gazebo.xacro" />
-
-  <!-- Import URDF -->
   <xacro:include filename="$(find open_manipulator_x_description)/urdf/open_manipulator_x.urdf.xacro" />
-
-  <xacro:include filename="$(find open_manipulator_x_description)/ros2_control/open_manipulator_x_system.ros2_control.xacro" />
 
   <xacro:open_manipulator_x prefix="$(arg prefix)" />
   <xacro:open_manipulator_x_gazebo prefix="$(arg prefix)" />
-  <xacro:open_manipulator_x_system
-    name="OpenManipulatorXSystem" prefix="$(arg prefix)" use_sim="$(arg use_sim)"
-    use_fake_hardware="$(arg use_fake_hardware)"
-    fake_sensor_commands="$(arg fake_sensor_commands)"
-    port_name="$(arg port_name)"/>
+
+  <ros2_control name="GazeboSystem" type="system">
+    <hardware>
+      <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+    </hardware>
+    <joint name="$(arg prefix)joint1">
+      <command_interface name="position"/><state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+    <joint name="$(arg prefix)joint2">
+      <command_interface name="position"/><state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+    <joint name="$(arg prefix)joint3">
+      <command_interface name="position"/><state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+    <joint name="$(arg prefix)joint4">
+      <command_interface name="position"/><state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+    <joint name="$(arg prefix)gripper_left_joint">
+      <command_interface name="position"/><state_interface name="position"/><state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
 
   <gazebo>
     <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
@@ -32,14 +41,11 @@
     </plugin>
   </gazebo>
 
-  <!-- World -->
   <link name="world"/>
-
-  <!-- World fixed joint-->
   <joint name="$(arg prefix)world_fixed" type="fixed">
     <origin xyz="0 0 0" rpy="0 0 0"/>
     <parent link="world"/>
-    <child link="$(arg prefix)link1"/>
+    <child link="$(arg prefix)board_link"/> 
   </joint>
 
 </robot>
