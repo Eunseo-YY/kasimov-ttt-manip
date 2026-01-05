@@ -2,7 +2,15 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
   <xacro:macro name="open_manipulator_x_system"
-    params="name prefix port_name:=^|/dev/ttyUSB0 use_sim:=^|false use_fake_hardware:=^|false fake_sensor_commands:=^|false">
+    params="
+      name
+      prefix
+      port_name:=/dev/ttyUSB0
+      baud_rate:=1000000
+      use_sim:=false
+      use_fake_hardware:=false
+      fake_sensor_commands:=false
+    ">
 
     <ros2_control name="${name}" type="system">
 
@@ -10,13 +18,15 @@
       <!-- Hardware definition -->
       <!-- ===================== -->
 
-      <xacro:if value="$(arg use_sim)">
+      <!-- SIM -->
+      <xacro:if value="${use_sim}">
         <hardware>
           <plugin>gz_ros2_control/GazeboSimSystem</plugin>
         </hardware>
       </xacro:if>
 
-      <xacro:unless value="$(arg use_sim)">
+      <!-- REAL -->
+      <xacro:unless value="${use_sim}">
         <hardware>
 
           <xacro:if value="${use_fake_hardware}">
@@ -29,13 +39,20 @@
             <plugin>dynamixel_hardware_interface/DynamixelHardware</plugin>
 
             <param name="port_name">${port_name}</param>
-            <param name="baud_rate">1000000</param>
+            <param name="baud_rate">${baud_rate}</param>
             <param name="error_timeout_ms">500</param>
             <param name="dynamixel_model_folder">/param/dxl_model</param>
 
             <param name="number_of_joints">5</param>
             <param name="number_of_transmissions">5</param>
             <param name="disable_torque_at_init">true</param>
+
+            <param name="enable_indirect_address">false</param>
+            <param name="use_fast_sync_read">false</param> 
+            <param name="use_sync_read">false</param>
+            <param name="use_sync_write">false</param>
+            <param name="use_indirect_address">false</param>
+
 
             <param name="transmission_to_joint_matrix">
               1, 0, 0, 0, 0,
@@ -73,7 +90,7 @@
       </xacro:unless>
 
       <!-- ===================== -->
-      <!-- Joint interfaces -->
+      <!-- Joint interfaces (원래대로 복구) -->
       <!-- ===================== -->
 
       <joint name="${prefix}joint1">
@@ -112,7 +129,7 @@
       </joint>
 
       <!-- ===================== -->
-      <!-- Dynamixel GPIO (XL430 safe: NO Drive Mode write) -->
+      <!-- Dynamixel GPIO -->
       <!-- ===================== -->
 
       <gpio name="dxl1">
@@ -126,7 +143,7 @@
         <param name="Position D Gain">100</param>
         <param name="Profile Velocity">20</param>
         <param name="Profile Acceleration">10</param>
-        <param name="Return Delay Time">0</param>
+        <param name="Return Delay Time">10</param>
       </gpio>
 
       <gpio name="dxl2">
@@ -140,7 +157,7 @@
         <param name="Position D Gain">100</param>
         <param name="Profile Velocity">20</param>
         <param name="Profile Acceleration">10</param>
-        <param name="Return Delay Time">0</param>
+        <param name="Return Delay Time">10</param>
       </gpio>
 
       <gpio name="dxl3">
@@ -154,7 +171,7 @@
         <param name="Position D Gain">100</param>
         <param name="Profile Velocity">20</param>
         <param name="Profile Acceleration">10</param>
-        <param name="Return Delay Time">0</param>
+        <param name="Return Delay Time">10</param>
       </gpio>
 
       <gpio name="dxl4">
@@ -168,10 +185,9 @@
         <param name="Position D Gain">100</param>
         <param name="Profile Velocity">20</param>
         <param name="Profile Acceleration">10</param>
-        <param name="Return Delay Time">0</param>
+        <param name="Return Delay Time">10</param>
       </gpio>
 
-      <!-- Gripper motor: XL430 safe -->
       <gpio name="dxl5">
         <param name="type">dxl</param>
         <param name="ID">15</param>
@@ -180,9 +196,10 @@
         <param name="Operating Mode">3</param>
         <param name="Profile Velocity">20</param>
         <param name="Profile Acceleration">10</param>
-        <param name="Return Delay Time">0</param>
+        <param name="Return Delay Time">10</param>
       </gpio>
 
     </ros2_control>
   </xacro:macro>
 </robot>
+
