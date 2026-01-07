@@ -1,3 +1,4 @@
+import os
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int8
@@ -5,6 +6,8 @@ from sensor_msgs.msg import JointState
 from pymoveit2 import MoveIt2
 import threading
 import time
+from shape_msgs.msg import Mesh
+from geometry_msgs.msg import Pose
 
 class ComputerMoveListener(Node):
     def __init__(self):
@@ -44,7 +47,12 @@ class ComputerMoveListener(Node):
         self.get_logger().info("MoveIt2 초기화 성공")
         
         # ----------------------------
-        # 3) MoveIt2 초기화(그리퍼)
+        # 3-1) STL 장애물 추가 (MoveIt2 초기화 직후 수행)
+        # ----------------------------
+        self.add_stl_mesh()
+
+        # ----------------------------
+        # 3-2) MoveIt2 초기화(그리퍼)
         # ----------------------------
         self.gripper = MoveIt2(
             node=self,
@@ -53,6 +61,7 @@ class ComputerMoveListener(Node):
             end_effector_name="hand",
             group_name="hand",
         )
+        
         # ----------------------------
         # 4) 명령 토픽 구독
         # ----------------------------
@@ -71,11 +80,47 @@ class ComputerMoveListener(Node):
         self.get_logger().info("=== 초기화 완료, joint_states 기다리는 중 ===")
 
     # ----------------------------
+    # 신규: STL 장애물 추가 함수
+    # ----------------------------
+    def add_stl_mesh(self):
+        """
+        Planning Scene에 STL 파일을 장애물로 등록합니다.
+        """
+        # 1. 경로 설정 (확장자 .stl 확인 필수!)
+        raw_path = "~/ws_kat/src/kasimov-ttt-manip/open_manipulator_x/kat_description/meshes/board/board_assembled.stl"
+        stl_path = os.path.expanduser(raw_path)
+        
+        # 2. 위치 및 자세 설정
+        obj_pose = Pose()
+        # 로봇 기준 좌표(joint0)에서의 위치 (필요에 따라 x, y, z 조정)
+        obj_pose.position.x = 0.0  # 로봇 앞으로 20cm 이동 예시
+        obj_pose.position.y = 0.0
+        obj_pose.position.z = 0.0
+        
+        # 3. 중요: 쿼터니언 값의 기본값(회전 없음)은 w=1.0 입니다.
+        obj_pose.orientation.x = 0.0
+        obj_pose.orientation.y = 0.0
+        obj_pose.orientation.z = 0.0
+        obj_pose.orientation.w = 1.0
+
+        try:
+            # pymoveit2의 add_mesh를 사용하여 장애물 등록
+            self.moveit2.add_mesh(
+                name="board",
+                pose=obj_pose,
+                file_path=stl_path
+            )
+            self.get_logger().info(f"✅ STL 장애물 추가 완료: {stl_path}")
+        except Exception as e:
+            self.get_logger().error(f"❌ STL 장애물 추가 중 에러 발생: {e}")
+
+    # ----------------------------
     # 유틸: 하트비트(선택)
     # ----------------------------
     def heartbeat(self):
         while rclpy.ok():
-            print("[Heartbeat] Node is spinning...")
+            # print 대신 get_logger를 사용하는 것이 좋습니다.
+            # self.get_logger().debug("[Heartbeat] Node is spinning...")
             time.sleep(2.0)
 
     # ----------------------------
@@ -86,15 +131,10 @@ class ComputerMoveListener(Node):
             self.joint_states_ready = True
             self.get_logger().info("✅ joint_states 첫 수신 완료")
 
-        # home은 딱 1번만
         if self.joint_states_ready and (not self.home_done):
-            self.home_done = True  # 중복 실행 방지(먼저 올려두는 게 안전)
+            self.home_done = True 
             threading.Thread(target=self.move_to_home_once, daemon=True).start()
 
-    # ----------------------------
-    # wait_until_executed() 타임아웃 래퍼
-    # (너 환경에서는 timeout 인자 지원 안 하니까 직접 구현)
-    # ----------------------------
     def wait_executed_with_timeout(self, timeout_s=10.0, period_s=0.1) -> bool:
         t0 = time.time()
         while time.time() - t0 < timeout_s:
@@ -103,38 +143,26 @@ class ComputerMoveListener(Node):
             time.sleep(period_s)
         return False
 
-    # ----------------------------
-    # 시작 시 home 1회 이동
-    # ----------------------------
     def move_to_home_once(self):
         if self.is_moving:
             return
-
         home = self.get_parameter("home").value
         self.get_logger().info(f"▶ 초기 HOME 이동 시작: {home}")
-
         self.is_moving = True
         try:
-            # joint_states 들어온 직후에도 약간 안정화 시간 주는 게 실로봇에서 유리함
             time.sleep(0.5)
-
             self.moveit2.move_to_configuration(home)
-
             ok = self.wait_executed_with_timeout(timeout_s=10.0)
             if ok:
                 self.get_logger().info("✅ HOME 이동 완료")
             else:
                 self.get_logger().error("❌ HOME 이동 실패 (timeout)")
-
         except Exception as e:
             self.get_logger().error(f"⚠️ HOME 이동 중 예외: {e}")
         finally:
             self.is_moving = False
             self.get_logger().info("=== HOME 처리 종료, 명령 대기 ===")
 
-    # ----------------------------
-    # 그리퍼 조작
-    # ----------------------------
     def control_gripper(self, open_mode=True):
         target_val = [0.019] if open_mode else [0.0]
         try:
@@ -143,57 +171,34 @@ class ComputerMoveListener(Node):
         except Exception as e:
             self.get_logger().error(f"그리퍼 조작 에러: {e}")
 
-    # ----------------------------
-    # cell 명령 수신 콜백
-    # ----------------------------
     def computer_move_callback(self, msg: Int8):
         move_id = int(msg.data)
         self.get_logger().info(f"● 토픽 수신 (ID: {move_id})")
-
-        # home 끝나기 전이면 명령 무시(원하면 큐잉도 가능하지만 일단 단순하게)
-        if not self.home_done:
-            self.get_logger().warn("HOME 아직 실행 전/중 → 명령 무시")
+        if not self.home_done or self.is_moving:
+            self.get_logger().warn("준비되지 않음 또는 이동 중 → 명령 무시")
             return
-
-        if self.is_moving:
-            self.get_logger().warn("이동 중 → 명령 무시")
-            return
-
-        # 범위 체크(방어)
         if move_id < 0 or move_id > 8:
-            self.get_logger().error(f"ID 범위 오류: {move_id} (0~8만 허용)")
             return
-
         threading.Thread(target=self.execute_move_task, args=(move_id,), daemon=True).start()
 
-    # ----------------------------
-    # 실제 이동 수행
-    # ----------------------------
     def execute_move_task(self, move_id: int):
         self.is_moving = True
         key = f"cell_{move_id}"
         angles = self.get_parameter(key).value
-
         self.get_logger().info(f"▶ {key} 이동 시도: {angles}")
-
         try:
-            # 1. 이동 전 그리퍼 열기 (추가)
             self.control_gripper(open_mode=True)
             self.moveit2.move_to_configuration(angles)
-
             ok = self.wait_executed_with_timeout(timeout_s=10.0)
             if ok:
-                # 2. 도착 후 그리퍼 닫기 (추가)
                 self.control_gripper(open_mode=False)
                 self.get_logger().info(f"✅ {key} 이동 성공")
             else:
                 self.get_logger().error(f"❌ {key} 이동 실패 (timeout)")
-
         except Exception as e:
             self.get_logger().error(f"⚠️ 이동 중 예외: {e}")
         finally:
             self.is_moving = False
-
 
 def main(args=None):
     rclpy.init(args=args)
@@ -205,7 +210,6 @@ def main(args=None):
     finally:
         node.destroy_node()
         rclpy.shutdown()
-
 
 if __name__ == "__main__":
     main()
