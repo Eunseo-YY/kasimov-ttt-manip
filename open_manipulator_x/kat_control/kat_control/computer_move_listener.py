@@ -6,7 +6,6 @@ from pymoveit2 import MoveIt2
 import threading
 import time
 
-
 class ComputerMoveListener(Node):
     def __init__(self):
         super().__init__("computer_move_listener")
@@ -33,17 +32,27 @@ class ComputerMoveListener(Node):
         self.create_subscription(JointState, "/joint_states", self.joint_states_cb, 10)
 
         # ----------------------------
-        # 3) MoveIt2 초기화
+        # 3) MoveIt2 초기화(팔)
         # ----------------------------
         self.moveit2 = MoveIt2(
             node=self,
             joint_names=["joint1", "joint2", "joint3", "joint4"],
-            base_link_name="joint0",   # 은서가 맞다고 했으니 유지 🙂
-            end_effector_name="hand",  # 은서가 문제 아니라고 했으니 유지 🙂
+            base_link_name="joint0",   
+            end_effector_name="hand", 
             group_name="arm",
         )
         self.get_logger().info("MoveIt2 초기화 성공")
-
+        
+        # ----------------------------
+        # 3) MoveIt2 초기화(그리퍼)
+        # ----------------------------
+        self.gripper = MoveIt2(
+            node=self,
+            joint_names=["gripper_left_joint"],
+            base_link_name="joint0",
+            end_effector_name="hand",
+            group_name="hand",
+        )
         # ----------------------------
         # 4) 명령 토픽 구독
         # ----------------------------
@@ -124,6 +133,17 @@ class ComputerMoveListener(Node):
             self.get_logger().info("=== HOME 처리 종료, 명령 대기 ===")
 
     # ----------------------------
+    # 그리퍼 조작
+    # ----------------------------
+    def control_gripper(self, open_mode=True):
+        target_val = [0.019] if open_mode else [0.0]
+        try:
+            self.gripper.move_to_configuration(target_val)
+            time.sleep(1.0) 
+        except Exception as e:
+            self.get_logger().error(f"그리퍼 조작 에러: {e}")
+
+    # ----------------------------
     # cell 명령 수신 콜백
     # ----------------------------
     def computer_move_callback(self, msg: Int8):
@@ -157,10 +177,14 @@ class ComputerMoveListener(Node):
         self.get_logger().info(f"▶ {key} 이동 시도: {angles}")
 
         try:
+            # 1. 이동 전 그리퍼 열기 (추가)
+            self.control_gripper(open_mode=True)
             self.moveit2.move_to_configuration(angles)
 
             ok = self.wait_executed_with_timeout(timeout_s=10.0)
             if ok:
+                # 2. 도착 후 그리퍼 닫기 (추가)
+                self.control_gripper(open_mode=False)
                 self.get_logger().info(f"✅ {key} 이동 성공")
             else:
                 self.get_logger().error(f"❌ {key} 이동 실패 (timeout)")
