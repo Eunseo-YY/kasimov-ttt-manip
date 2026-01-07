@@ -19,7 +19,7 @@ def generate_launch_description():
         output="screen",
         parameters=[
             moveit_config.to_dict(),
-            {"use_sim_time": False}, 
+            {"use_sim_time": True},  # Gazebo 시뮬레이션 시간 동기화 필수 설정
         ],
     )
 
