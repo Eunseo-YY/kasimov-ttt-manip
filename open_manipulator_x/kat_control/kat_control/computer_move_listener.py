@@ -38,8 +38,8 @@ class ComputerMoveListener(Node):
         self.moveit2 = MoveIt2(
             node=self,
             joint_names=["joint1", "joint2", "joint3", "joint4"],
-            base_link_name="joint0",   # 은서가 맞다고 했으니 유지 🙂
-            end_effector_name="hand",  # 은서가 문제 아니라고 했으니 유지 🙂
+            base_link_name="joint0",   
+            end_effector_name="hand", 
             group_name="arm",
         )
         self.get_logger().info("MoveIt2 초기화 성공")
