@@ -3,15 +3,24 @@ from rclpy.node import Node
 from std_msgs.msg import Int8
 from sensor_msgs.msg import JointState
 from pymoveit2 import MoveIt2
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Point, Pose
 import threading
 import time
 import os
+from ament_index_python.packages import get_package_share_directory
+import numpy as np
+import trimesh
+from shape_msgs.msg import Mesh, MeshTriangle
+from moveit_msgs.msg import CollisionObject
+from std_msgs.msg import Header
+
 
 class ComputerMoveListener(Node):
     def __init__(self):
         super().__init__("computer_move_listener")
 
+        self.get_logger().info(f"Sim Time 사용 여부: {self.get_parameter('use_sim_time').get_parameter_value().bool_value}")
+        
         self.get_logger().info("=== 노드 시작 ===")
 
         # ----------------------------
@@ -75,29 +84,75 @@ class ComputerMoveListener(Node):
     # 장애물 추가 (joint_states 이후 실행)
     # ----------------------------
     def setup_obstacles(self):
-        raw_path = "~/ws_kat/src/kasimov-ttt-manip/open_manipulator_x/kat_description/meshes/board/board_assembled.stl"
-        stl_path = os.path.expanduser(raw_path)
+        try:
+            package_path = get_package_share_directory("kat_description")
+            stl_path = os.path.join(package_path, "meshes", "board", "board_assembled.stl")
+        except Exception:
+            stl_path = os.path.expanduser(
+                "~/ws_kat/src/kasimov-ttt-manip/open_manipulator_x/kat_description/meshes/board/board_assembled.stl"
+            )
 
         if not os.path.exists(stl_path):
             self.get_logger().error(f"STL 파일 없음: {stl_path}")
             return
 
-        ps = PoseStamped()
-        ps.header.frame_id = "joint0"
-        ps.pose.position.x = 0.20
-        ps.pose.position.y = 0.0
-        ps.pose.position.z = 0.0
-        ps.pose.orientation.w = 1.0
-
         try:
-            self.moveit2.add_collision_mesh(
-                filepath=stl_path,
-                id="board",
-                pose=ps,
-                scale=1.0
-            )
+            # 1) 메쉬 로드
+            mesh = trimesh.load(stl_path)
+
+            # trimesh가 Scene으로 읽어오는 경우가 있어서 안전 처리
+            if hasattr(mesh, "dump"):
+                mesh = mesh.dump(concatenate=True)
+
+            mesh.apply_scale(0.001)
+
+            # 2) CollisionObject 만들기
+            obj = CollisionObject()
+            obj.id = "board"
+            obj.operation = CollisionObject.ADD
+
+            # 중요: MoveIt이 쓰는 프레임으로 맞추는 게 안전함 (너 출력에 link1이었음)
+            obj.header.frame_id = "world"
+            obj.header.stamp = rclpy.time.Time().to_msg()
+
+            # 3) Mesh 메시지 조립
+            mesh_msg = Mesh()
+
+            for face in mesh.faces:
+                tri = MeshTriangle()
+                tri.vertex_indices = [int(face[0]), int(face[1]), int(face[2])]
+                mesh_msg.triangles.append(tri)
+
+            for v in mesh.vertices:
+                pt = Point()
+                pt.x = float(v[0])
+                pt.y = float(v[1])
+                pt.z = float(v[2])
+                mesh_msg.vertices.append(pt)
+
+            obj.meshes.append(mesh_msg)
+
+            # 4) Pose (meshes 개수랑 mesh_poses 개수 같아야 함)
+            pose = Pose()
+            pose.position.x = 0.0
+            pose.position.y = 0.0
+            pose.position.z = 0.0
+            
+            pose.orientation.x = 0.0
+            pose.orientation.y = 0.0
+            pose.orientation.z = 1.0
+            pose.orientation.w = 0.0
+            obj.mesh_poses.append(pose)
+
+            # 중요: 1번만 쏘면 씹힐 수 있어서 여러 번 publish
+            pub = self.moveit2._MoveIt2__collision_object_publisher
+            for _ in range(8):
+                pub.publish(obj)
+                time.sleep(0.15)
+
             self.obstacle_added = True
-            self.get_logger().info("보드 장애물 추가 완료")
+            self.get_logger().info("보드 장애물 추가 완료 (재전송 포함)")
+
         except Exception as e:
             self.get_logger().error(f"장애물 추가 실패: {e}")
 
@@ -182,6 +237,8 @@ class ComputerMoveListener(Node):
 
         try:
             self.control_gripper(open_mode=True)
+            self.moveit2.planning_time = 100.0 
+            self.get_logger().info(f"계획 시간을 100초로 설정하여 {key} 이동 시도...")
             self.moveit2.move_to_configuration(angles)
 
             if self.wait_executed_with_timeout():

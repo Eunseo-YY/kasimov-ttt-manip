@@ -14,80 +14,60 @@ import xacro
 def generate_launch_description():
     # Package paths
     open_manipulator_description_path = get_package_share_directory('kat_description')
-    open_manipulator_bringup_path = get_package_share_directory('kat_bringup')
     kat_sim_path = get_package_share_directory('kat_sim')
 
-    # ✅ worlds 경로: kat_sim에 있는 empty_world.sdf를 쓰게 만들기
-    # 네 구조: kat_sim/gazebo/worlds/empty_world.sdf
     worlds_path = os.path.join(kat_sim_path, 'gazebo', 'worlds')
-
-    # 모델 리소스 루트(메시/모델 탐색용)
     models_root = str(Path(open_manipulator_description_path).parent.resolve())
 
-    # ✅ gz/ign 둘 다 worlds_path 포함
-    set_gz_resource = SetEnvironmentVariable(
-        name='GZ_SIM_RESOURCE_PATH',
-        value=[worlds_path, ':' + models_root],
-    )
-    set_ign_resource = SetEnvironmentVariable(
-        name='IGN_GAZEBO_RESOURCE_PATH',
-        value=[worlds_path, ':' + models_root],
-    )
+    set_gz_resource = SetEnvironmentVariable(name='GZ_SIM_RESOURCE_PATH', value=[worlds_path, ':' + models_root])
+    set_ign_resource = SetEnvironmentVariable(name='IGN_GAZEBO_RESOURCE_PATH', value=[worlds_path, ':' + models_root])
 
-    # Launch args (파일명만 받음)
-    world_arg = DeclareLaunchArgument(
-        'world',
-        default_value='empty_world',
-        description='Gazebo Sim world name (파일명, 확장자 제외)'
-    )
-
-    # ✅ gz_args를 "단일 문자열"로 넘기기 (진짜 안정적)
-    gz_args_str = [
-        LaunchConfiguration('world'),
-        TextSubstitution(text='.sdf -v 1 -r')
-    ]
+    world_arg = DeclareLaunchArgument('world', default_value='empty_world')
 
     gz_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             os.path.join(get_package_share_directory('ros_gz_sim'), 'launch', 'gz_sim.launch.py'),
         ]),
-        launch_arguments={
-            'gz_args': gz_args_str
-        }.items(),
+        launch_arguments={'gz_args': [LaunchConfiguration('world'), '.sdf -v 1 -r']}.items(),
     )
 
-    # Robot description (use_sim=true)
-    xacro_file = os.path.join(
-        open_manipulator_description_path, 'urdf', 'open_manipulator_x', 'open_manipulator_x.urdf.xacro'
-    )
+    # Robot description
+    xacro_file = os.path.join(open_manipulator_description_path, 'urdf', 'open_manipulator_x', 'open_manipulator_x.urdf.xacro')
     doc = xacro.process_file(xacro_file, mappings={'use_sim': 'true'})
     robot_desc = doc.toprettyxml(indent='  ')
-    params = {'robot_description': robot_desc}
 
+    # ✅ 1. 이전에 잘 작동하던 방식으로 state_pub 파라미터 복구
     state_pub = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         output='screen',
-        parameters=[params],
+        parameters=[{
+            'robot_description': robot_desc,
+            'use_sim_time': True
+        }],
     )
 
     spawn = Node(
         package='ros_gz_sim',
         executable='create',
         output='screen',
-        arguments=[
-            '-string', robot_desc,
-            '-name', 'om',
-            '-x', '0.0', '-y', '0.0', '-z', '0.0',
-            '-R', '0.0', '-P', '0.0', '-Y', '0.0',
-            '-allow_renaming', 'true',
-        ],
+        arguments=['-string', robot_desc, '-name', 'om', '-allow_renaming', 'true'],
     )
 
+    # ✅ 2. Clock Bridge: Ignition 6(Fortress)에서 가장 표준적인 형식으로 수정
+    # 대괄호 '[' 의 위치와 메시지 타입을 확실히 합니다.
+    clock_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=['/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock'],
+        output='screen',
+    )
+
+    # Spawners
     jsb_spawner = Node(
         package='controller_manager',
         executable='spawner',
-        arguments=['joint_state_broadcaster', '--controller-manager', '/controller_manager'],
+        arguments=['joint_state_broadcaster'],
         output='screen',
     )
     arm_spawner = Node(
@@ -103,13 +83,7 @@ def generate_launch_description():
         output='screen',
     )
 
-    clock_bridge = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
-        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock]'],
-        output='screen',
-    )
-
+    # ✅ 3. 이벤트 핸들러: Spawn이 완전히 끝난 후 컨트롤러 실행
     on_spawn_exit = RegisterEventHandler(
         OnProcessExit(target_action=spawn, on_exit=[jsb_spawner])
     )
