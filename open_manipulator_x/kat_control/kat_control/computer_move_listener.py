@@ -37,6 +37,7 @@ class ComputerMoveListener(Node):
         for i in range(9):
             self.declare_parameter(f"cell_{i}", [0.0, 0.0, 0.0, 0.0])
         self.declare_parameter("home", [0.0, 0.0, 0.0, 0.0])
+        self.declare_parameter("pick", [3.14159265, -0.78539816, 0.52359878, 1.57079633])
 
         # ----------------------------
         # 2) /joint_states 구독
@@ -204,6 +205,20 @@ class ComputerMoveListener(Node):
                 return True
             time.sleep(0.1)
         return False
+    
+    # ----------------------------
+    # 자동 Approach 각도 계산 (Joint 2, 3 보정)
+    # ----------------------------
+    def get_approach_configuration(self, target_angles):
+        """
+        바닥 각도를 기준으로 2번(Shoulder)과 3번(Elbow) 관절을 보정하여 
+        수직 상단 대기 위치를 계산합니다.
+        """
+        approach = list(target_angles)
+        approach[1] -= 0.25  # Shoulder를 뒤로 젖힘
+        approach[2] += 0.15  # Elbow를 위로 올림
+        return approach
+    
 
     # ----------------------------
     # 그리퍼 제어
@@ -233,19 +248,65 @@ class ComputerMoveListener(Node):
     def execute_move_task(self, move_id: int):
         self.is_moving = True
         key = f"cell_{move_id}"
-        angles = self.get_parameter(key).value
+
+        # 파라미터에서 목표 각도 가져오기
+        target_angles = self.get_parameter(key).value
+
+        # 기본 포즈들
+        pick = self.get_parameter("pick").value  
+        home = self.get_parameter("home").value  
+
+        # 접근/이탈 포즈(셀 위 대기)
+        approach_angles = self.get_approach_configuration(target_angles)
+
+        # 공통 실행 헬퍼(코드 중복 줄이기)
+        def go(name: str, q, planning_time=10.0, timeout_s=12.0, close_gripper=None):
+            self.moveit2.planning_time = float(planning_time)
+            self.get_logger().info(f"{name} 이동 시도 | planning_time={planning_time} | q={q}")
+
+            self.moveit2.move_to_configuration(list(q))
+
+            ok = self.wait_executed_with_timeout(timeout_s=timeout_s)
+            if ok:
+                self.get_logger().info(f"{name} 이동 성공")
+                if close_gripper is not None:
+                    # close_gripper=True면 닫기, False면 열기
+                    self.control_gripper(open_mode=(not close_gripper))
+            else:
+                self.get_logger().error(f"{name} 이동 실패/timeout")
+            return ok
 
         try:
+            # 0) 시작 전 그리퍼 열기
             self.control_gripper(open_mode=True)
-            self.moveit2.planning_time = 100.0 
-            self.get_logger().info(f"계획 시간을 100초로 설정하여 {key} 이동 시도...")
-            self.moveit2.move_to_configuration(angles)
 
-            if self.wait_executed_with_timeout():
-                self.control_gripper(open_mode=False)
-                self.get_logger().info(f"{key} 이동 성공")
-            else:
-                self.get_logger().error(f"{key} 이동 실패")
+            # 1) pick으로 가서 집기(닫기)
+            if not go("PICK", pick, planning_time=100.0, timeout_s=15.0):
+                return
+            self.control_gripper(open_mode=False)  
+
+            # 2) home으로 복귀(집은 상태 유지)
+            if not go("HOME(after pick)", home, planning_time=100.0, timeout_s=15.0):
+                return
+
+            # 3) 셀 위 상단 대기(approach)
+            if not go(f"APPROACH({key})", approach_angles, planning_time=100.0, timeout_s=20.0):
+                return
+
+            # 4) 실제 셀 위치(place)로 내려가기
+            if not go(f"PLACE({key})", target_angles, planning_time=100.0, timeout_s=25.0):
+                return
+
+            # 5) 놓기(그리퍼 열기)
+            self.control_gripper(open_mode=True)
+
+            # 6) 다시 셀 위 상단 대기(retreat)
+            if not go(f"RETREAT({key})", approach_angles, planning_time=100.0, timeout_s=20.0):
+                return
+
+            # 7) home으로 복귀
+            go("HOME(final)", home, planning_time=100.0, timeout_s=15.0)
+
         except Exception as e:
             self.get_logger().error(f"이동 예외: {e}")
         finally:

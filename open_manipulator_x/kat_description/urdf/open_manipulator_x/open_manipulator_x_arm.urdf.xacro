@@ -199,12 +199,12 @@
         </material>
       </visual>
 
-      <collision>
+      <!-- <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${meshes_file_direction}/gripper_left_palm.stl" scale="0.001 0.001 0.001"/>
         </geometry>
-      </collision>
+      </collision> -->
 
       <inertial>
         <origin xyz="0 0 0" />
@@ -236,12 +236,12 @@
         </material>
       </visual>
 
-      <collision>
+      <!-- <collision>
         <origin xyz="0 0 0" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${meshes_file_direction}/gripper_right_palm.stl" scale="0.001 0.001 0.001"/>
         </geometry>
-      </collision>
+      </collision> -->
 
       <inertial>
         <origin xyz="0 0 0" />
