@@ -20,9 +20,10 @@ class ComputerMoveListener(Node):
         super().__init__("computer_move_listener")
 
         self.get_logger().info(f"Sim Time 사용 여부: {self.get_parameter('use_sim_time').get_parameter_value().bool_value}")
-        
+        # [추가] 시뮬레이션 오차 허용 범위 강제 설정 (Invalid Trajectory 에러 방지)
+        os.system("ros2 param set /move_group trajectory_execution/allowed_start_tolerance 0.5")
         self.get_logger().info("=== 노드 시작 ===")
-
+        
         # ----------------------------
         # 0) 내부 상태 플래그
         # ----------------------------
@@ -38,6 +39,8 @@ class ComputerMoveListener(Node):
             self.declare_parameter(f"cell_{i}", [0.0, 0.0, 0.0, 0.0])
         self.declare_parameter("home", [0.0, 0.0, 0.0, 0.0])
         self.declare_parameter("pick", [3.14159265, -0.78539816, 0.52359878, 1.57079633])
+        self.declare_parameter("loading_zone", [0.0, 0.0, 0.0, 0.0])
+
 
         # ----------------------------
         # 2) /joint_states 구독
@@ -67,7 +70,7 @@ class ComputerMoveListener(Node):
             end_effector_name="hand",
             group_name="hand",
         )
-
+        
         # ----------------------------
         # 4) 명령 토픽 구독
         # ----------------------------
@@ -82,82 +85,6 @@ class ComputerMoveListener(Node):
         self.get_logger().info("=== 초기화 완료 ===")
 
     # ----------------------------
-    # 장애물 추가 (joint_states 이후 실행)
-    # ----------------------------
-    def setup_obstacles(self):
-        try:
-            package_path = get_package_share_directory("kat_description")
-            stl_path = os.path.join(package_path, "meshes", "board", "board_assembled.stl")
-        except Exception:
-            stl_path = os.path.expanduser(
-                "~/ws_kat/src/kasimov-ttt-manip/open_manipulator_x/kat_description/meshes/board/board_assembled.stl"
-            )
-
-        if not os.path.exists(stl_path):
-            self.get_logger().error(f"STL 파일 없음: {stl_path}")
-            return
-
-        try:
-            # 1) 메쉬 로드
-            mesh = trimesh.load(stl_path)
-
-            # trimesh가 Scene으로 읽어오는 경우가 있어서 안전 처리
-            if hasattr(mesh, "dump"):
-                mesh = mesh.dump(concatenate=True)
-
-            mesh.apply_scale(0.001)
-
-            # 2) CollisionObject 만들기
-            obj = CollisionObject()
-            obj.id = "board"
-            obj.operation = CollisionObject.ADD
-
-            # 중요: MoveIt이 쓰는 프레임으로 맞추는 게 안전함 (너 출력에 link1이었음)
-            obj.header.frame_id = "world"
-            obj.header.stamp = rclpy.time.Time().to_msg()
-
-            # 3) Mesh 메시지 조립
-            mesh_msg = Mesh()
-
-            for face in mesh.faces:
-                tri = MeshTriangle()
-                tri.vertex_indices = [int(face[0]), int(face[1]), int(face[2])]
-                mesh_msg.triangles.append(tri)
-
-            for v in mesh.vertices:
-                pt = Point()
-                pt.x = float(v[0])
-                pt.y = float(v[1])
-                pt.z = float(v[2])
-                mesh_msg.vertices.append(pt)
-
-            obj.meshes.append(mesh_msg)
-
-            # 4) Pose (meshes 개수랑 mesh_poses 개수 같아야 함)
-            pose = Pose()
-            pose.position.x = 0.0
-            pose.position.y = 0.0
-            pose.position.z = 0.0
-            
-            pose.orientation.x = 0.0
-            pose.orientation.y = 0.0
-            pose.orientation.z = 1.0
-            pose.orientation.w = 0.0
-            obj.mesh_poses.append(pose)
-
-            # 중요: 1번만 쏘면 씹힐 수 있어서 여러 번 publish
-            pub = self.moveit2._MoveIt2__collision_object_publisher
-            for _ in range(8):
-                pub.publish(obj)
-                time.sleep(0.15)
-
-            self.obstacle_added = True
-            self.get_logger().info("보드 장애물 추가 완료 (재전송 포함)")
-
-        except Exception as e:
-            self.get_logger().error(f"장애물 추가 실패: {e}")
-
-    # ----------------------------
     # joint_states 콜백
     # ----------------------------
     def joint_states_cb(self, msg: JointState):
@@ -165,8 +92,8 @@ class ComputerMoveListener(Node):
             self.joint_states_ready = True
             self.get_logger().info("joint_states 첫 수신")
 
-            if not self.obstacle_added:
-                self.setup_obstacles()
+            #if not self.obstacle_added:
+                #self.setup_obstacles()
 
         if self.joint_states_ready and not self.home_done:
             self.home_done = True
@@ -205,33 +132,59 @@ class ComputerMoveListener(Node):
                 return True
             time.sleep(0.1)
         return False
-    
+
     # ----------------------------
     # 자동 Approach 각도 계산 (Joint 2, 3 보정)
     # ----------------------------
-    def get_approach_configuration(self, target_angles):
+    def get_approach(self, angles):
         """
         바닥 각도를 기준으로 2번(Shoulder)과 3번(Elbow) 관절을 보정하여 
         수직 상단 대기 위치를 계산합니다.
         """
-        approach = list(target_angles)
+        approach = list(angles)
         approach[1] -= 0.25  # Shoulder를 뒤로 젖힘
         approach[2] += 0.15  # Elbow를 위로 올림
         return approach
-    
 
     # ----------------------------
     # 그리퍼 제어
     # ----------------------------
     def control_gripper(self, open_mode=True):
-        target = [0.019] if open_mode else [0.0]
+        target = [0.01] if open_mode else [0.0]
         self.gripper.move_to_configuration(target)
-        time.sleep(1.0)
+        time.sleep(1.2)
+    # ----------------------------
+    # 안전 이동 보조 함수
+    # ----------------------------
+    # [추가] 이동 유닛 함수: 코드 중복을 줄이고 각 동작 사이 대기를 관리
+    def move_to_and_wait(self, angles, label=""):
+        time.sleep(1.0) # 계획 전 안정화 시간
+        self.get_logger().info(f"{label} 이동 시도...")
+        self.moveit2.move_to_configuration(angles)
+        if self.wait_executed_with_timeout(10.0):
+            self.get_logger().info(f"{label} 이동 완료")
+            time.sleep(0.5) # 도착 후 잔진동 대기
+            return True
+        else:
+            self.get_logger().error(f"{label} 이동 실패!")
+            return False
+
+    def wait_executed_with_timeout(self, timeout_s=20.0):
+        t0 = time.time()
+        while time.time() - t0 < timeout_s:
+            if self.moveit2.wait_until_executed():
+                return True
+            time.sleep(0.1)
+        return False
 
     # ----------------------------
     # 컴퓨터 수 명령 처리
     # ----------------------------
     def computer_move_callback(self, msg: Int8):
+        if not self.joint_states_ready: # 추가
+            self.get_logger().warn("조인트 정보를 아직 받지 못했습니다. 잠시 후 다시 시도하세요.")
+            return
+
         if not self.home_done or self.is_moving:
             return
 
@@ -245,72 +198,52 @@ class ComputerMoveListener(Node):
             daemon=True
         ).start()
 
+    # [수정] 메인 시나리오: 로딩존 -> 말 집기 -> 셀 이동 -> 말 놓기 -> 홈
     def execute_move_task(self, move_id: int):
         self.is_moving = True
-        key = f"cell_{move_id}"
-
-        # 파라미터에서 목표 각도 가져오기
-        target_angles = self.get_parameter(key).value
-
-        # 기본 포즈들
-        pick = self.get_parameter("pick").value  
-        home = self.get_parameter("home").value  
-
-        # 접근/이탈 포즈(셀 위 대기)
-        approach_angles = self.get_approach_configuration(target_angles)
-
-        # 공통 실행 헬퍼(코드 중복 줄이기)
-        def go(name: str, q, planning_time=10.0, timeout_s=12.0, close_gripper=None):
-            self.moveit2.planning_time = float(planning_time)
-            self.get_logger().info(f"{name} 이동 시도 | planning_time={planning_time} | q={q}")
-
-            self.moveit2.move_to_configuration(list(q))
-
-            ok = self.wait_executed_with_timeout(timeout_s=timeout_s)
-            if ok:
-                self.get_logger().info(f"{name} 이동 성공")
-                if close_gripper is not None:
-                    # close_gripper=True면 닫기, False면 열기
-                    self.control_gripper(open_mode=(not close_gripper))
-            else:
-                self.get_logger().error(f"{name} 이동 실패/timeout")
-            return ok
+        
+        # 1) 필요한 각도 로드
+        loading_zone = self.get_parameter("loading_zone").value
+        loading_approach = self.get_approach(loading_zone)
+        cell_angles = self.get_parameter(f"cell_{move_id}").value
+        cell_approach = self.get_approach(cell_angles)
+        home_angles = self.get_parameter("home").value
 
         try:
-            # 0) 시작 전 그리퍼 열기
+            # --- PHASE 1: 로딩 존에서 말 집기 ---
             self.control_gripper(open_mode=True)
+            if not self.move_to_and_wait(loading_approach, "로딩존 Approach"): return
+            if not self.move_to_and_wait(loading_zone, "로딩존 Ground"): return
+            self.control_gripper(open_mode=False) # 말 집기
+            if not self.move_to_and_wait(loading_approach, "로딩존 Retract"): return
 
-            # 1) pick으로 가서 집기(닫기)
-            if not go("PICK", pick, planning_time=100.0, timeout_s=15.0):
-                return
-            self.control_gripper(open_mode=False)  
+            # --- PHASE 2: 셀 위치에 말 놓기 ---
+            if not self.move_to_and_wait(cell_approach, f"Cell {move_id} Approach"): return
+            if not self.move_to_and_wait(cell_angles, f"Cell {move_id} Ground"): return
+            self.control_gripper(open_mode=True) # 말 놓기
+            if not self.move_to_and_wait(cell_approach, f"Cell {move_id} Retract"): return
 
-            # 2) home으로 복귀(집은 상태 유지)
-            if not go("HOME(after pick)", home, planning_time=100.0, timeout_s=15.0):
-                return
-
-            # 3) 셀 위 상단 대기(approach)
-            if not go(f"APPROACH({key})", approach_angles, planning_time=100.0, timeout_s=20.0):
-                return
-
-            # 4) 실제 셀 위치(place)로 내려가기
-            if not go(f"PLACE({key})", target_angles, planning_time=100.0, timeout_s=25.0):
-                return
-
-            # 5) 놓기(그리퍼 열기)
-            self.control_gripper(open_mode=True)
-
-            # 6) 다시 셀 위 상단 대기(retreat)
-            if not go(f"RETREAT({key})", approach_angles, planning_time=100.0, timeout_s=20.0):
-                return
-
-            # 7) home으로 복귀
-            go("HOME(final)", home, planning_time=100.0, timeout_s=15.0)
+            # --- PHASE 3: 홈 위치로 복귀 ---
+            self.move_to_and_wait(home_angles, "최종 Home 복귀")
 
         except Exception as e:
-            self.get_logger().error(f"이동 예외: {e}")
+            self.get_logger().error(f"시퀀스 실행 중 예외 발생: {e}")
         finally:
             self.is_moving = False
+
+    # --- 기존 함수 유지 (setup_obstacles, control_gripper 등) ---
+    def control_gripper(self, open_mode=True):
+        target = [0.019] if open_mode else [0.0]
+        self.gripper.move_to_configuration(target)
+        time.sleep(1.5) # 그리퍼 동작 시간 충분히 부여
+
+    def wait_executed_with_timeout(self, timeout_s=10.0):
+        t0 = time.time()
+        while time.time() - t0 < timeout_s:
+            if self.moveit2.wait_until_executed():
+                return True
+            time.sleep(0.1)
+        return False
 
     def heartbeat(self):
         while rclpy.ok():
