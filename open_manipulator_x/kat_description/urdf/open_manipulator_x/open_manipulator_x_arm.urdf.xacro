@@ -55,12 +55,12 @@
         </material>
       </visual>
 
-      <collision>
+      <!-- <collision>
         <origin xyz="0 0 0.019" rpy="0 0 0"/>
         <geometry>
           <mesh filename="${meshes_file_direction}/link2.stl" scale="0.001 0.001 0.001"/>
         </geometry>
-      </collision>
+      </collision> -->
 
        <inertial>
         <origin xyz="-3.0184870e-04 5.4043684e-04 ${0.018 + 2.9433464e-02}" />
