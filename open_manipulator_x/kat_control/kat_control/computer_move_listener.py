@@ -300,7 +300,7 @@ class ComputerMoveListener(Node):
     # 그리퍼 제어 (요청대로 값 유지)
     # ----------------------------
     def control_gripper(self, open_mode=True):
-        target = [0.008] if open_mode else [0.002]
+        target = [0.010] if open_mode else [0.002]
         self.gripper.move_to_configuration(target)
         time.sleep(1.5)
 
