@@ -25,7 +25,7 @@ class ComputerMoveListener(Node):
         self.get_logger().info(f"Sim Time 사용 여부: {sim_time}")
 
         # [추가] 시뮬레이션 오차 허용 범위 강제 설정 (Invalid Trajectory 에러 방지)
-        os.system("ros2 param set /move_group trajectory_execution/allowed_start_tolerance 0.5")
+        os.system("ros2 param set /move_group trajectory_execution/allowed_start_tolerance 0.2")
 
         self.get_logger().info("=== 노드 시작 ===")
 
@@ -254,10 +254,11 @@ class ComputerMoveListener(Node):
         threading.Thread(target=self.execute_move_task, args=(move_id,), daemon=True).start()
 
     # ----------------------------
-    # 메인 시나리오
+    # 메인 시나리오 (수정본)
     # ----------------------------
     def execute_move_task(self, move_id: int):
         self.is_moving = True
+        self.get_logger().info(f"--- Task {move_id} 시작 ---")
 
         loading_zone = self.get_parameter("loading_zone").value
         loading_approach = self.get_approach(loading_zone)
@@ -266,47 +267,73 @@ class ComputerMoveListener(Node):
         home_angles = self.get_parameter("home").value
 
         try:
-            # PHASE 1: 로딩존에서 말 집기
+            # PHASE 1: 로딩존
             self.control_gripper(open_mode=True)
-            if not self.move_to_and_wait(loading_approach, "로딩존 Approach"):
-                return
-            if not self.move_to_and_wait(loading_zone, "로딩존 Ground"):
-                return
+            if not self.move_to_and_wait(loading_approach, "로딩존 Approach"): return
+            if not self.move_to_and_wait(loading_zone, "로딩존 Ground"): return
 
-            self.control_gripper(open_mode=False)  # 말 집기
-            if not self.move_to_and_wait(loading_approach, "로딩존 Retract"):
-                return
+            self.control_gripper(open_mode=False) # 말 집기 (여기서 확실히 닫혀야 함)
+            
+            # [중요] 집은 후 아주 약간의 대기 후 들어올리기
+            time.sleep(0.5)
+            if not self.move_to_and_wait(loading_approach, "로딩존 Retract"): return
 
-            # PHASE 2: 셀 위치에 말 놓기
-            self.move_to_and_wait([0.0, 0.0, 0.0, 0.0], "Home 복귀")
-            if not self.move_to_and_wait(cell_approach, f"Cell {move_id} Approach"):
-                return
-            if not self.move_to_and_wait(cell_angles, f"Cell {move_id} Ground"):
-                return
+            # # PHASE 2: 중간 Home 복귀 (이동 경로 확보)
+            # # 0.0, 0.0... 대신 파라미터로 설정된 home_angles 사용 권장
+            # self.get_logger().info("안전 경로 확보를 위한 중간 Home 이동")
+            # if not self.move_to_and_wait(home_angles, "중간 Home"): return
 
-            self.control_gripper(open_mode=True)  # 말 놓기
-            if not self.move_to_and_wait(cell_approach, f"Cell {move_id} Retract"):
-                return
+            # PHASE 3: 셀 위치에 놓기
+            if not self.move_to_and_wait(cell_approach, f"Cell {move_id} Approach"): return
+            if not self.move_to_and_wait(cell_angles, f"Cell {move_id} Ground"): return
 
-            # PHASE 3: 홈 복귀
+            self.control_gripper(open_mode=True) # 말 놓기
+            
+            time.sleep(0.5)
+            if not self.move_to_and_wait(cell_approach, f"Cell {move_id} Retract"): return
+
+            # PHASE 4: 최종 복귀
             self.move_to_and_wait(home_angles, "최종 Home 복귀")
 
         except Exception as e:
             self.get_logger().error(f"시퀀스 실행 중 예외 발생: {e}")
         finally:
             self.is_moving = False
+            self.get_logger().info(f"--- Task {move_id} 종료 ---")
 
     # ----------------------------
-    # 그리퍼 제어 (요청대로 값 유지)
+    # 하트비트 (노드 생존 확인용)
     # ----------------------------
-    def control_gripper(self, open_mode=True):
-        target = [0.008] if open_mode else [0.002]
-        self.gripper.move_to_configuration(target)
-        time.sleep(1.5)
-
     def heartbeat(self):
         while rclpy.ok():
+            # self.get_logger().info("Heartbeat...") # 너무 자주 뜨면 주석 처리하세요
             time.sleep(5.0)
+
+    # ----------------------------
+    # 그리퍼 제어 보강
+    # ----------------------------
+    def control_gripper(self, open_mode=True):
+        label = "Open" if open_mode else "Close"
+        target = [0.008] if open_mode else [0.001]
+        
+        self.get_logger().info(f"그리퍼 {label} 시도...")
+        self.gripper.move_to_configuration(target)
+        
+        # 단순히 sleep하는 대신 gripper 인스턴스의 완료를 기다림
+        t0 = time.time()
+        success = False
+        while time.time() - t0 < 3.0:  # 최대 3초 대기
+            if self.gripper.wait_until_executed():
+                success = True
+                break
+            time.sleep(0.1)
+        
+        if success:
+            self.get_logger().info(f"그리퍼 {label} 완료")
+        else:
+            self.get_logger().warn(f"그리퍼 {label} 타임아웃 (강제 진행)")
+        
+        time.sleep(0.5) # 물리적 안정화 시간
 
 
 def main(args=None):
