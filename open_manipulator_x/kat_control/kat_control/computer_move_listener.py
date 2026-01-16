@@ -46,7 +46,7 @@ class ComputerMoveListener(Node):
         for i in range(9):
             self.declare_parameter(f"cell_{i}", [0.0, 0.0, 0.0, 0.0])
         self.declare_parameter("home", [0.0, 0.0, 0.0, 0.0])
-        self.declare_parameter("loading_zone", [3.14159265, -0.78539816, 0.52359878, 1.57079633])
+        self.declare_parameter("loading_zone", [0.0, 0.0, 0.0, 0.0])
 
         # ----------------------------
         # 2) /joint_states 구독
@@ -261,7 +261,7 @@ class ComputerMoveListener(Node):
         self.get_logger().info(f"--- Task {move_id} 시작 ---")
 
         loading_zone = self.get_parameter("loading_zone").value
-        loading_approach = self.get_approach(loading_zone)
+        loading_approach = [3.14159265, -0.43633, 0.0, 1.91986]
         cell_angles = self.get_parameter(f"cell_{move_id}").value
         cell_approach = self.get_approach(cell_angles)
         home_angles = self.get_parameter("home").value
@@ -269,8 +269,11 @@ class ComputerMoveListener(Node):
         try:
             # PHASE 1: 로딩존
             self.control_gripper(open_mode=True)
+            if not self.move_to_and_wait([3.14159265, 0.0, 0.0, 0.0], "반대 회전"): return
+            time.sleep(5.0)  # 안정화 대기
             if not self.move_to_and_wait(loading_approach, "로딩존 Approach"): return
-            if not self.move_to_and_wait(loading_zone, "로딩존 Ground"): return
+            if not self.move_to_and_wait([3.14159265, -1.13539816, 0.52359878, 1.57079633], "로딩존 Ground 1"): return
+            if not self.move_to_and_wait(loading_zone, "로딩존 Ground 2"): return
 
             self.control_gripper(open_mode=False) # 말 집기 (여기서 확실히 닫혀야 함)
             
@@ -278,10 +281,11 @@ class ComputerMoveListener(Node):
             time.sleep(0.5)
             if not self.move_to_and_wait(loading_approach, "로딩존 Retract"): return
 
-            # # PHASE 2: 중간 Home 복귀 (이동 경로 확보)
-            # # 0.0, 0.0... 대신 파라미터로 설정된 home_angles 사용 권장
-            # self.get_logger().info("안전 경로 확보를 위한 중간 Home 이동")
-            # if not self.move_to_and_wait(home_angles, "중간 Home"): return
+            # PHASE 2: 중간 Home 복귀 (이동 경로 확보)
+            # 0.0, 0.0... 대신 파라미터로 설정된 home_angles 사용 권장
+            self.get_logger().info("안전 경로 확보를 위한 중간 Home 이동")
+            if not self.move_to_and_wait(home_angles, "중간 Home"): return
+            time.sleep(5.0) # 안정화 대기
 
             # PHASE 3: 셀 위치에 놓기
             if not self.move_to_and_wait(cell_approach, f"Cell {move_id} Approach"): return
@@ -315,7 +319,7 @@ class ComputerMoveListener(Node):
     # ----------------------------
     def control_gripper(self, open_mode=True):
         label = "Open" if open_mode else "Close"
-        target = [0.008] if open_mode else [0.001]
+        target = [0.009] if open_mode else [0.002]
         
         self.get_logger().info(f"그리퍼 {label} 시도...")
         self.gripper.move_to_configuration(target)
