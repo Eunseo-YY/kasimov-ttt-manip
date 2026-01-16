@@ -304,6 +304,7 @@ class ComputerMoveListener(Node):
     # ----------------------------
     # 하트비트 (노드 생존 확인용)
     # ----------------------------
+
     def heartbeat(self):
         while rclpy.ok():
             # self.get_logger().info("Heartbeat...") # 너무 자주 뜨면 주석 처리하세요
