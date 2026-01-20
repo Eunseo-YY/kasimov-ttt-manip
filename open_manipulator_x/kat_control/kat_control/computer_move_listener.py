@@ -216,7 +216,7 @@ class ComputerMoveListener(Node):
     # ----------------------------
     def get_approach(self, angles):
         approach = list(angles)
-        approach[1] -= 0.25  # Shoulder 뒤로
+        approach[1] -= 0.4  # Shoulder 뒤로
         approach[2] += 0.15  # Elbow 위로
         return approach
 
@@ -270,7 +270,7 @@ class ComputerMoveListener(Node):
             # PHASE 1: 로딩존
             self.control_gripper(open_mode=True)
             if not self.move_to_and_wait([3.14159265, 0.0, 0.0, 0.0], "반대 회전"): return
-            time.sleep(5.0)  # 안정화 대기
+            time.sleep(1.0)  # 안정화 대기
             if not self.move_to_and_wait(loading_approach, "로딩존 Approach"): return
             if not self.move_to_and_wait([3.14159265, -1.13539816, 0.52359878, 1.57079633], "로딩존 Ground 1"): return
             if not self.move_to_and_wait(loading_zone, "로딩존 Ground 2"): return
@@ -278,7 +278,7 @@ class ComputerMoveListener(Node):
             self.control_gripper(open_mode=False) # 말 집기 (여기서 확실히 닫혀야 함)
             
             # [중요] 집은 후 아주 약간의 대기 후 들어올리기
-            time.sleep(0.5)
+            time.sleep(0.2)
             if not self.move_to_and_wait(loading_approach, "로딩존 Retract"): return
 
             # PHASE 2: 중간 Home 복귀 (이동 경로 확보)
@@ -293,7 +293,7 @@ class ComputerMoveListener(Node):
 
             self.control_gripper(open_mode=True) # 말 놓기
             
-            time.sleep(0.5)
+            time.sleep(0.7)
             if not self.move_to_and_wait(cell_approach, f"Cell {move_id} Retract"): return
 
             # PHASE 4: 최종 복귀
