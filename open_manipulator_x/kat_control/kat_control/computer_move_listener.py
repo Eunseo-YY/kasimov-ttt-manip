@@ -25,7 +25,7 @@ class ComputerMoveListener(Node):
         self.get_logger().info(f"Sim Time 사용 여부: {sim_time}")
 
         # [추가] 시뮬레이션 오차 허용 범위 강제 설정 (Invalid Trajectory 에러 방지)
-        os.system("ros2 param set /move_group trajectory_execution/allowed_start_tolerance 0.2")
+        os.system("ros2 param set /move_group trajectory_execution/allowed_start_tolerance 0.001")
 
         self.get_logger().info("=== 노드 시작 ===")
 
@@ -216,7 +216,7 @@ class ComputerMoveListener(Node):
     # ----------------------------
     def get_approach(self, angles):
         approach = list(angles)
-        approach[1] -= 0.4  # Shoulder 뒤로
+        approach[1] -= 0.43  # Shoulder 뒤로
         approach[2] += 0.15  # Elbow 위로
         return approach
 
@@ -224,7 +224,7 @@ class ComputerMoveListener(Node):
     # 안전 이동 보조 함수
     # ----------------------------
     def move_to_and_wait(self, angles, label=""):
-        time.sleep(1.0)  # 계획 전 안정화
+        time.sleep(0.5)  # 계획 전 안정화
         self.get_logger().info(f"{label} 이동 시도...")
         self.moveit2.move_to_configuration(angles)
 
@@ -270,7 +270,7 @@ class ComputerMoveListener(Node):
             # PHASE 1: 로딩존
             self.control_gripper(open_mode=True)
             if not self.move_to_and_wait([3.14159265, 0.0, 0.0, 0.0], "반대 회전"): return
-            time.sleep(1.0)  # 안정화 대기
+            time.sleep(0.2)  # 안정화 대기
             if not self.move_to_and_wait(loading_approach, "로딩존 Approach"): return
             if not self.move_to_and_wait([3.14159265, -1.13539816, 0.52359878, 1.57079633], "로딩존 Ground 1"): return
             if not self.move_to_and_wait(loading_zone, "로딩존 Ground 2"): return
@@ -285,7 +285,7 @@ class ComputerMoveListener(Node):
             # 0.0, 0.0... 대신 파라미터로 설정된 home_angles 사용 권장
             self.get_logger().info("안전 경로 확보를 위한 중간 Home 이동")
             if not self.move_to_and_wait(home_angles, "중간 Home"): return
-            time.sleep(5.0) # 안정화 대기
+            time.sleep(3.5) # 안정화 대기
 
             # PHASE 3: 셀 위치에 놓기
             if not self.move_to_and_wait(cell_approach, f"Cell {move_id} Approach"): return
@@ -293,7 +293,7 @@ class ComputerMoveListener(Node):
 
             self.control_gripper(open_mode=True) # 말 놓기
             
-            time.sleep(0.7)
+            time.sleep(0.2)
             if not self.move_to_and_wait(cell_approach, f"Cell {move_id} Retract"): return
 
             # PHASE 4: 최종 복귀
