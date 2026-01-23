@@ -23,6 +23,7 @@ def generate_launch_description():
             "use_sim_time": True,  # Gazebo 시뮬레이션 시간 동기화 필수 설정
             "default_robot_padding": 0.0,    # 로봇 팔 주변의 가상 보호막 제거
             "default_object_padding": 0.0,   # 장애물(보드) 주변의 가상 보호막 제거
+            "trajectory_execution.allowed_start_tolerance": 0.05, # 오차 허용 범위를 0.05로 확대
             "start_state_max_bounds_error": 0.1,
             }
         ],

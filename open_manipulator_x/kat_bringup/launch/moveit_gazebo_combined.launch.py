@@ -24,6 +24,14 @@ def generate_launch_description():
         .to_moveit_configs()
     )
     
+    # [핵심 수정] 딕셔너리의 update 메서드를 사용하여 안전하게 값을 주입합니다.
+    # trajectory_execution 관련 파라미터는 보통 moveit_config.trajectory_execution 딕셔너리에 들어갑니다.
+    if "trajectory_execution" in moveit_config.to_dict():
+        moveit_config.trajectory_execution.update({"allowed_start_tolerance": 0.5})
+    else:
+        # 만약 해당 키가 없다면 직접 추가합니다.
+        moveit_config.trajectory_execution = {"allowed_start_tolerance": 0.5}
+        
     # moveit_config의 각 요소들에 use_sim_time 파라미터를 강제로 주입
     moveit_config.robot_description.update({"use_sim_time": True})
     moveit_config.robot_description_semantic.update({"use_sim_time": True})
